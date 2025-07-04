@@ -47,7 +47,7 @@ async function init() {
   const loadingManager = setupLoadingManager();
 
   // Setup lights
-  const { ambientLight, pointLight } = setupLights(scene);
+  const { ambientLight, pointLight, sunLight } = setupLights(scene);
 
   // Create objects
   const { physicsCube, slope } = createObjects(scene);
@@ -62,9 +62,10 @@ async function init() {
   const cameraControls = setupControls(camera, canvas);
 
   // Setup helpers
-  const { axesHelper, pointLightHelper } = setupHelpers(
+  const { axesHelper, pointLightHelper, sunLightHelper } = setupHelpers(
     scene,
-    pointLight
+    pointLight,
+    sunLight
   );
 
   // Setup stats and clock
@@ -83,11 +84,13 @@ async function init() {
     slope,
     ambientLight,
     pointLight,
+    sunLight,
     clock,
     stats,
     gui: null as any, // Will be set below
     axesHelper,
     pointLightHelper,
+    sunLightHelper,
     loadingManager,
   };
 
@@ -134,6 +137,96 @@ function animate() {
     physicsCubeRotation.z,
     physicsCubeRotation.w
   );
+
+  // Third-person camera follow
+  if (sceneObjects.cameraSettings?.followCube) {
+    // Get cube's velocity to determine direction
+    const velocity =
+      physicsObjects.physicsCubeBody.linvel();
+
+    // Get vertical angle from settings (default to 30 if not set)
+    const verticalAngle =
+      sceneObjects.cameraSettings.verticalAngle || 30;
+    const verticalRadians = (verticalAngle * Math.PI) / 180;
+
+    // Calculate camera height and horizontal distance based on angle
+    const totalDistance = 5; // Total follow distance
+    const horizontalDistance =
+      totalDistance * Math.cos(verticalRadians);
+    const height =
+      totalDistance * Math.sin(verticalRadians) +
+      physicsCubePosition.y;
+
+    // Only update direction if moving with significant speed
+    if (
+      Math.abs(velocity.x) > 0.1 ||
+      Math.abs(velocity.z) > 0.1
+    ) {
+      // Calculate direction of movement on XZ plane
+      const direction = {
+        x: velocity.x,
+        z: velocity.z,
+      };
+
+      // Normalize direction
+      const length = Math.sqrt(
+        direction.x * direction.x +
+          direction.z * direction.z
+      );
+      if (length > 0) {
+        direction.x /= length;
+        direction.z /= length;
+      }
+
+      // Position camera behind the cube using calculated height and distance
+      sceneObjects.camera.position.set(
+        physicsCubePosition.x -
+          direction.x * horizontalDistance,
+        height,
+        physicsCubePosition.z -
+          direction.z * horizontalDistance
+      );
+    } else {
+      // If not moving, just maintain position behind the cube using current camera position
+      const offset = {
+        x:
+          sceneObjects.camera.position.x -
+          physicsCubePosition.x,
+        z:
+          sceneObjects.camera.position.z -
+          physicsCubePosition.z,
+      };
+
+      const distance = Math.sqrt(
+        offset.x * offset.x + offset.z * offset.z
+      );
+      if (distance > 0) {
+        const normalizedOffset = {
+          x: offset.x / distance,
+          z: offset.z / distance,
+        };
+
+        // Use calculated horizontal distance
+        sceneObjects.camera.position.set(
+          physicsCubePosition.x +
+            normalizedOffset.x * horizontalDistance,
+          height,
+          physicsCubePosition.z +
+            normalizedOffset.z * horizontalDistance
+        );
+      }
+    }
+
+    // Keep the target at the cube
+    sceneObjects.cameraControls.target.set(
+      physicsCubePosition.x,
+      physicsCubePosition.y,
+      physicsCubePosition.z
+    );
+
+    // Update controls after manually positioning camera
+    sceneObjects.cameraControls.update();
+  }
 
   // Handle responsive rendering
   if (resizeRendererToDisplaySize(sceneObjects.renderer)) {

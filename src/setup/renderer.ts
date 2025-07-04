@@ -1,4 +1,8 @@
-import { WebGLRenderer, Scene, PCFSoftShadowMap } from 'three';
+import {
+  WebGLRenderer,
+  Scene,
+  PCFSoftShadowMap,
+} from "three";
 
 export function setupRenderer(canvas: HTMLElement) {
   const renderer = new WebGLRenderer({
@@ -6,11 +10,13 @@ export function setupRenderer(canvas: HTMLElement) {
     antialias: true,
     alpha: true,
   });
-  
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+  );
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
-  
+
   return renderer;
 }
 
